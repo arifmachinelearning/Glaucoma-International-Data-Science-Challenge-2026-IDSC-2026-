@@ -1,7 +1,7 @@
 # GlaucoScan — Eye Analysis System
 ### YOLO Glaucoma Detection + MobileNetV2 Quality Regression
 
-![GlaucoScan System](glaucoscan_preview.JPEG)
+![GlaucoScan System](glaucoscan_preview.jpeg)
 
 ---
 
