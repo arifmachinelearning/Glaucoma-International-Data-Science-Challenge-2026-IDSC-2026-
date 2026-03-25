@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GlaucoScan — Eye Analysis System</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:       #080c14;
+    --border:   #1a2640;
+    --accent:   #00e5ff;
+    --accent2:  #7c3aed;
+    --positive: #ff4d6d;
+    --negative: #00c896;
+    --text:     #e2e8f0;
+    --muted:    #64748b;
+    --card-bg:  #0f1a2e;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Syne',sans-serif; min-height:100vh; }
+  body::before {
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+    background-image: linear-gradient(rgba(0,229,255,.03) 1px,transparent 1px), linear-gradient(90deg,rgba(0,229,255,.03) 1px,transparent 1px);
+    background-size:40px 40px;
+  }
+  .orb { position:fixed; border-radius:50%; filter:blur(120px); pointer-events:none; z-index:0; opacity:.15; }
+  .orb-1 { width:500px; height:500px; background:var(--accent2); top:-150px; left:-100px; }
+  .orb-2 { width:400px; height:400px; background:var(--accent);  bottom:-100px; right:-100px; }
+
+  header { position:relative; z-index:10; text-align:center; padding:2.5rem 2rem 1.5rem; }
+  .logo-wrap { display:inline-flex; align-items:center; gap:1rem; margin-bottom:.6rem; }
+  .logo-icon { width:52px; height:52px; background:linear-gradient(135deg,var(--accent),var(--accent2)); border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:1.6rem; box-shadow:0 0 30px rgba(0,229,255,.3); }
+  .logo-text { font-size:2rem; font-weight:800; letter-spacing:-.02em; background:linear-gradient(135deg,var(--accent),#a78bfa); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .tagline { font-family:'Space Mono',monospace; font-size:.72rem; color:var(--muted); letter-spacing:.2em; text-transform:uppercase; }
+
+  .container { position:relative; z-index:10; max-width:920px; margin:0 auto; padding:0 1.5rem 4rem; }
+
+  /* ── UPLOAD ── */
+  .upload-zone {
+    border:2px dashed var(--border); border-radius:20px; padding:2.5rem 2rem;
+    text-align:center; background:var(--card-bg); position:relative; overflow:hidden;
+    transition:all .3s;
+  }
+  .upload-zone.drag-over { border-color:var(--accent); box-shadow:0 0 40px rgba(0,229,255,.12); }
+  .upload-icon { font-size:3rem; margin-bottom:.8rem; display:block; animation:float 3s ease-in-out infinite; }
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+  .upload-title { font-size:1.2rem; font-weight:600; margin-bottom:.4rem; }
+  .upload-sub { font-family:'Space Mono',monospace; font-size:.72rem; color:var(--muted); margin-bottom:1.2rem; }
+
+  /* FIXED: use button instead of label to trigger file input */
+  .upload-btn {
+    display:inline-block; padding:.7rem 2rem;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    border:none; border-radius:50px; font-family:'Syne',sans-serif;
+    font-weight:700; font-size:.88rem; color:#fff; cursor:pointer;
+    letter-spacing:.05em; transition:all .2s;
+  }
+  .upload-btn:hover { transform:translateY(-2px); box-shadow:0 8px 25px rgba(0,229,255,.3); }
+  #fileInput { display:none; }
+
+  /* ── MAIN LAYOUT ── */
+  .main-layout { display:none; margin-top:1.5rem; grid-template-columns:290px 1fr; gap:1.5rem; align-items:start; }
+  .main-layout.visible { display:grid; }
+  @media(max-width:680px){ .main-layout { grid-template-columns:1fr; } }
+
+  /* ── IMAGE PANEL ── */
+  .img-panel { background:var(--card-bg); border:1px solid var(--border); border-radius:18px; overflow:hidden; }
+  .img-panel img { width:100%; display:block; max-height:300px; object-fit:cover; }
+  .img-filename { padding:.6rem 1rem; font-family:'Space Mono',monospace; font-size:.65rem; color:var(--muted); border-top:1px solid var(--border); word-break:break-all; }
+  .analyze-btn {
+    display:block; width:100%; margin-top:.8rem; padding:.9rem;
+    border:none; border-radius:12px;
+    background:linear-gradient(135deg,#00e5ff,#7c3aed);
+    font-family:'Syne',sans-serif; font-size:.95rem; font-weight:700;
+    color:#fff; cursor:pointer; transition:all .3s; letter-spacing:.05em;
+  }
+  .analyze-btn:hover { transform:translateY(-2px); box-shadow:0 10px 30px rgba(0,229,255,.3); }
+  .analyze-btn:disabled { opacity:.5; cursor:not-allowed; transform:none; }
+  .reset-btn {
+    display:block; width:100%; margin-top:.6rem; padding:.65rem;
+    background:transparent; border:1px solid var(--border); border-radius:12px;
+    color:var(--muted); font-family:'Syne',sans-serif; font-size:.85rem;
+    cursor:pointer; transition:all .2s;
+  }
+  .reset-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+  /* ── RESULTS PANEL ── */
+  .results-panel { display:flex; flex-direction:column; gap:1.2rem; }
+
+  /* Loading */
+  .loading-card { display:none; background:var(--card-bg); border:1px solid var(--border); border-radius:18px; padding:2.5rem; text-align:center; }
+  .scanner { width:70px; height:70px; border-radius:50%; border:3px solid var(--border); border-top-color:var(--accent); animation:spin 1s linear infinite; margin:0 auto 1.2rem; position:relative; }
+  .scanner::after { content:'👁'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:1.6rem; animation:spin 1s linear infinite reverse; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  .loading-text { font-family:'Space Mono',monospace; color:var(--accent); font-size:.8rem; letter-spacing:.12em; }
+
+  /* Cards */
+  .card { background:var(--card-bg); border:1px solid var(--border); border-radius:18px; padding:1.6rem; position:relative; overflow:hidden; display:none; animation:fadeUp .45s ease; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+  .card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; border-radius:18px 18px 0 0; }
+  .card.glaucoma::before { background:linear-gradient(90deg,var(--accent),var(--accent2)); }
+  .card.quality::before  { background:linear-gradient(90deg,var(--accent2),var(--negative)); }
+  .card.summary::before  { background:linear-gradient(90deg,var(--negative),var(--accent)); }
+  .card-label { font-family:'Space Mono',monospace; font-size:.62rem; color:var(--muted); letter-spacing:.2em; text-transform:uppercase; margin-bottom:1rem; }
+
+  /* Glaucoma */
+  .glaucoma-status { font-size:1.8rem; font-weight:800; margin-bottom:.3rem; }
+  .glaucoma-status.positive { color:var(--positive); }
+  .glaucoma-status.negative { color:var(--negative); }
+  .glaucoma-sub { font-size:.82rem; color:var(--muted); margin-bottom:1rem; }
+  .conf-row { display:flex; justify-content:space-between; margin-bottom:.4rem; }
+  .conf-row span { font-family:'Space Mono',monospace; font-size:.7rem; color:var(--muted); }
+  .bar-track { height:8px; background:var(--border); border-radius:10px; overflow:hidden; }
+  .bar-fill { height:100%; border-radius:10px; transition:width 1s cubic-bezier(.4,0,.2,1); }
+  .bar-fill.positive { background:linear-gradient(90deg,var(--positive),#ff8fa3); }
+  .bar-fill.negative { background:linear-gradient(90deg,var(--negative),#34d399); }
+  .class-breakdown { margin-top:1rem; }
+  .class-row { display:flex; justify-content:space-between; padding:.35rem 0; border-bottom:1px solid var(--border); }
+  .class-row:last-child { border-bottom:none; }
+  .class-name { font-family:'Space Mono',monospace; font-size:.74rem; }
+  .class-pct  { font-family:'Space Mono',monospace; font-size:.74rem; color:var(--accent); font-weight:700; }
+
+  /* Quality */
+  .quality-score-row { display:flex; align-items:baseline; gap:.4rem; margin-bottom:.5rem; }
+  .quality-num   { font-size:3.2rem; font-weight:800; line-height:1; }
+  .quality-denom { font-size:1.3rem; color:var(--muted); font-weight:600; }
+  .quality-badge { display:inline-block; padding:.28rem .9rem; border-radius:50px; font-family:'Space Mono',monospace; font-size:.68rem; font-weight:700; letter-spacing:.1em; color:#000; margin-bottom:1rem; }
+  .meter-track { height:10px; background:var(--border); border-radius:10px; overflow:hidden; margin-bottom:.4rem; }
+  .meter-fill  { height:100%; border-radius:10px; transition:width 1.2s cubic-bezier(.4,0,.2,1); }
+  .meter-ticks { display:flex; justify-content:space-between; font-family:'Space Mono',monospace; font-size:.6rem; color:var(--muted); }
+
+  /* Summary */
+  .summary-row { display:flex; gap:1rem; align-items:flex-start; }
+  .summary-icon  { font-size:2rem; flex-shrink:0; }
+  .summary-title { font-weight:700; font-size:1rem; margin-bottom:.4rem; }
+  .summary-text  { font-family:'Space Mono',monospace; font-size:.72rem; color:var(--muted); line-height:1.9; white-space:pre-line; }
+
+  /* Error */
+  .error-box { display:none; background:rgba(231,76,60,.1); border:1px solid rgba(231,76,60,.3); border-radius:12px; padding:1rem 1.5rem; margin-top:1rem; font-family:'Space Mono',monospace; font-size:.78rem; color:#ff6b6b; text-align:center; }
+
+  footer { position:relative; z-index:10; text-align:center; padding:1.5rem; font-family:'Space Mono',monospace; font-size:.62rem; color:var(--muted); letter-spacing:.1em; border-top:1px solid var(--border); }
+  .dot { display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--negative); box-shadow:0 0 6px var(--negative); animation:pulse 2s infinite; vertical-align:middle; margin-right:.4rem; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+</style>
+</head>
+<body>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<header>
+  <div class="logo-wrap">
+    <div class="logo-icon">👁</div>
+    <span class="logo-text">GlaucoScan</span>
+  </div>
+  <div class="tagline">Glaucoma Detection &amp; Eyes Quality Analysis</div>
+</header>
+
+<div class="container">
+
+  <!-- UPLOAD ZONE -->
+  <div class="upload-zone" id="dropZone">
+    <span class="upload-icon">🔬</span>
+    <div class="upload-title">Drop gambar mata di sini</div>
+    <div class="upload-sub">Supports JPG · PNG · BMP &nbsp;|&nbsp; Fundus / Retinal images</div>
+    <!-- FIXED: button onclick triggers hidden input, bukan label -->
+    <button class="upload-btn" onclick="document.getElementById('fileInput').click()">Pilih Gambar</button>
+    <input type="file" id="fileInput" accept="image/*"/>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <!-- MAIN LAYOUT -->
+  <div class="main-layout" id="mainLayout">
+
+    <!-- LEFT: image + buttons -->
+    <div>
+      <div class="img-panel">
+        <img id="previewImg" src="" alt="Eye image"/>
+        <div class="img-filename" id="imgFilename"></div>
+      </div>
+      <button class="analyze-btn" id="analyzeBtn">🧠 Analyze Eye</button>
+      <button class="reset-btn" id="resetBtn">↩ Gambar Lain</button>
+    </div>
+
+    <!-- RIGHT: results -->
+    <div class="results-panel">
+
+      <div class="loading-card" id="loadingCard">
+        <div class="scanner"></div>
+        <div class="loading-text">MENGANALISIS GAMBAR MATA...</div>
+      </div>
+
+      <div class="card glaucoma" id="glaucomaCard">
+        <div class="card-label">Glaucoma Detection — YOLO Classification</div>
+        <div class="glaucoma-status" id="glaucomaStatus"></div>
+        <div class="glaucoma-sub"    id="glaucomaSub"></div>
+        <div class="conf-row">
+          <span>Confidence</span>
+          <span id="confPct"></span>
+        </div>
+        <div class="bar-track"><div class="bar-fill" id="confBar" style="width:0%"></div></div>
+        <div class="class-breakdown" id="classBreakdown"></div>
+      </div>
+
+      <div class="card quality" id="qualityCard">
+        <div class="card-label">Eyes Quality Score — Regression Model</div>
+        <div class="quality-score-row">
+          <span class="quality-num" id="qualityNum">—</span>
+          <span class="quality-denom">/ 10</span>
+        </div>
+        <div class="quality-badge" id="qualityBadge"></div>
+        <div class="meter-track"><div class="meter-fill" id="qualityBar" style="width:0%"></div></div>
+        <div class="meter-ticks"><span>1</span><span>3</span><span>5</span><span>7</span><span>10</span></div>
+      </div>
+
+      <div class="card summary" id="summaryCard">
+        <div class="card-label">Summary &amp; Cadangan</div>
+        <div class="summary-row">
+          <div class="summary-icon" id="summaryIcon"></div>
+          <div>
+            <div class="summary-title" id="summaryTitle"></div>
+            <div class="summary-text"  id="summaryText"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<footer><span class="dot"></span>YOLO Classification + MobileNetV2 Regression — Local System</footer>
+
+<script>
+const dropZone    = document.getElementById('dropZone');
+const fileInput   = document.getElementById('fileInput');
+const mainLayout  = document.getElementById('mainLayout');
+const previewImg  = document.getElementById('previewImg');
+const imgFilename = document.getElementById('imgFilename');
+const analyzeBtn  = document.getElementById('analyzeBtn');
+const resetBtn    = document.getElementById('resetBtn');
+const loadingCard = document.getElementById('loadingCard');
+const errorBox    = document.getElementById('errorBox');
+const glaucomaCard = document.getElementById('glaucomaCard');
+const qualityCard  = document.getElementById('qualityCard');
+const summaryCard  = document.getElementById('summaryCard');
+
+let currentFile = null;
+
+// ── DRAG & DROP ──
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('image/')) loadFile(f);
+});
+
+// ── FILE INPUT (Pilih Gambar button) ──
+fileInput.addEventListener('change', e => {
+  if (e.target.files && e.target.files[0]) loadFile(e.target.files[0]);
+});
+
+function loadFile(file) {
+  currentFile = file;
+  previewImg.src = URL.createObjectURL(file);
+  imgFilename.textContent = '📁 ' + file.name;
+  mainLayout.classList.add('visible');
+  dropZone.style.display = 'none';
+  hideCards();
+  errorBox.style.display = 'none';
+  analyzeBtn.disabled = false;
+}
+
+function hideCards() {
+  loadingCard.style.display  = 'none';
+  glaucomaCard.style.display = 'none';
+  qualityCard.style.display  = 'none';
+  summaryCard.style.display  = 'none';
+}
+
+// ── ANALYZE ──
+analyzeBtn.addEventListener('click', async () => {
+  if (!currentFile) return;
+  analyzeBtn.disabled = true;
+  hideCards();
+  loadingCard.style.display = 'block';
+  errorBox.style.display = 'none';
+
+  const fd = new FormData();
+  fd.append('image', currentFile);
+
+  try {
+    const res  = await fetch('/analyze', { method:'POST', body:fd });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || 'Server error');
+    loadingCard.style.display = 'none';
+    showResults(data);
+  } catch(err) {
+    loadingCard.style.display = 'none';
+    analyzeBtn.disabled = false;
+    errorBox.textContent = '⚠ Error: ' + err.message;
+    errorBox.style.display = 'block';
+  }
+});
+
+// ── SHOW RESULTS ──
+function showResults(data) {
+  const g = data.glaucoma;
+  const q = data.quality;
+  const isPos = g.status === 'Positive';
+
+  // Glaucoma card
+  const statusEl = document.getElementById('glaucomaStatus');
+  statusEl.textContent = (isPos ? '⚠️ ' : '✅ ') + g.status + ' Glaucoma';
+  statusEl.className   = 'glaucoma-status ' + (isPos ? 'positive' : 'negative');
+  document.getElementById('glaucomaSub').textContent = 'Detected class: ' + g.label;
+  document.getElementById('confPct').textContent = g.confidence + '%';
+  const bar = document.getElementById('confBar');
+  bar.className = 'bar-fill ' + (isPos ? 'positive' : 'negative');
+  setTimeout(() => bar.style.width = g.confidence + '%', 80);
+
+  const bd = document.getElementById('classBreakdown');
+  bd.innerHTML = '';
+  for (const [cls, pct] of Object.entries(g.top_classes)) {
+    const row = document.createElement('div');
+    row.className = 'class-row';
+    row.innerHTML = `<span class="class-name">${cls}</span><span class="class-pct">${pct}%</span>`;
+    bd.appendChild(row);
+  }
+  glaucomaCard.style.display = 'block';
+
+  // Quality card — always show /10
+  document.getElementById('qualityNum').textContent = q.raw_score;
+  const badge = document.getElementById('qualityBadge');
+  badge.textContent      = q.quality_label;
+  badge.style.background = q.quality_color;
+  const mBar = document.getElementById('qualityBar');
+  mBar.style.background = `linear-gradient(90deg, ${q.quality_color}, ${q.quality_color}99)`;
+  setTimeout(() => mBar.style.width = q.pct + '%', 150);
+  qualityCard.style.display = 'block';
+
+  // Summary card
+  let icon, title, text;
+  const qs = q.raw_score;
+  if (isPos && qs >= 5) {
+    icon='🚨'; title='Tindakan Segera Diperlukan';
+    text=`Glaucoma dikesan dengan keyakinan ${g.confidence}%.\nKualiti mata: ${q.quality_label} (${qs}/10) — hasil boleh dipercayai.\nSila berjumpa doktor pakar mata dengan segera.`;
+  } else if (isPos && qs < 5) {
+    icon='⚠️'; title='Glaucoma Dikesan — Kualiti Gambar Rendah';
+    text=`Glaucoma dikesan tetapi kualiti gambar adalah ${q.quality_label} (${qs}/10).\nHasil mungkin kurang tepat. Sila ambil gambar yang lebih jelas\ndan rujuk doktor pakar untuk pengesahan.`;
+  } else if (!isPos && qs >= 5) {
+    icon='✅'; title='Tiada Glaucoma Dikesan';
+    text=`Tiada tanda glaucoma (keyakinan ${g.confidence}%).\nKualiti mata: ${q.quality_label} (${qs}/10) — hasil boleh dipercayai.\nTeruskan pemeriksaan mata berkala.`;
+  } else {
+    icon='🔍'; title='Tidak Konklusif — Kualiti Gambar Rendah';
+    text=`Tiada glaucoma dikesan tetapi kualiti gambar adalah ${q.quality_label} (${qs}/10).\nSila gunakan gambar fundus yang lebih berkualiti\nuntuk analisis yang lebih tepat.`;
+  }
+  document.getElementById('summaryIcon').textContent  = icon;
+  document.getElementById('summaryTitle').textContent = title;
+  document.getElementById('summaryText').textContent  = text;
+  summaryCard.style.display = 'block';
+
+  analyzeBtn.disabled = false;
+}
+
+// ── RESET ──
+resetBtn.addEventListener('click', () => {
+  currentFile = null;
+  fileInput.value = '';
+  mainLayout.classList.remove('visible');
+  dropZone.style.display = 'block';
+  hideCards();
+  errorBox.style.display = 'none';
+  document.getElementById('confBar').style.width   = '0%';
+  document.getElementById('qualityBar').style.width = '0%';
+  analyzeBtn.disabled = false;
+});
+</script>
+</body>
+</html>
