@@ -1,6 +1,8 @@
 # GlaucoScan — Eye Analysis System
 ### YOLO Glaucoma Detection + MobileNetV2 Quality Regression
 
+![GlaucoScan System](glaucoscan_preview.png)
+
 ---
 
 ## 📁 Struktur Folder
@@ -13,6 +15,19 @@ glaucoma_system/
 └── templates/
     └── index.html          ← Web interface
 ```
+
+---
+
+## 🧠 Model Files
+
+Model weights **tidak disertakan dalam branch ini** kerana saiz fail yang besar.
+
+| Model | Branch | Path dalam branch |
+|-------|--------|-------------------|
+| YOLO Glaucoma Detection (`.pt`) | `project-eyes` | `hillel-yaffe-glaucoma/hillel-yaffe-glaucoma/yolo11n-cls.pt` |
+| Image Regression MobileNetV2 (`.pth`) | `project-eyes` | `outputs/best_model.pth` |
+
+Download model dari branch `project-eyes` dan letakkan mengikut path dalam `app.py`.
 
 ---
 
@@ -52,14 +67,11 @@ print("MAX:", df.iloc[:, 3].max())
 ## 🚀 Cara Jalankan
 
 ```bash
-# Pergi ke folder system
 cd C:\path\to\glaucoma_system
-
-# Jalankan server
 python app.py
 ```
 
-Kemudian buka browser dan pergi ke:
+Kemudian buka browser:
 ```
 http://127.0.0.1:5000
 ```
@@ -68,15 +80,12 @@ http://127.0.0.1:5000
 
 ## 🎯 Cara Guna
 
-1. **Drop gambar mata** ke dalam kotak upload (atau klik "Choose Image")
-2. Klik butang **"Analyze Eye"**
-3. Tunggu beberapa saat — sistem akan jalankan:
+1. Drop gambar mata ke dalam kotak upload
+2. Klik **"Analyze Eye"**
+3. Sistem akan jalankan:
    - 🔍 **YOLO** → detect Glaucoma Positive / Negative
    - 📊 **Regression** → bagi Quality Score (%)
-4. Hasil akan keluar dengan:
-   - Status glaucoma + confidence %
-   - Quality score + label (Excellent/Good/Fair/Poor)
-   - Summary dengan cadangan tindakan
+4. Hasil keluar dengan status glaucoma + confidence % + quality score
 
 ---
 
